@@ -262,6 +262,38 @@ public class Repository implements Serializable {
         }
     }
 
+    public static void rmBranch(String branchName){
+        checkInit();
+        Repository repo = readRepo();
+        if (!repo.branches.containsKey(branchName)){
+            System.out.println("A branch with that name does not exist");
+            System.exit(0);
+        }
+        if (repo.head.equals(branchName)){
+            System.out.println("Cannot remove the current branch");
+            System.exit(0);
+        }
+        repo.branches.remove(branchName);
+        saveRepo(repo);
+    }
+
+    public static void reset(String cmtID){
+        checkInit();
+        Repository repo = readRepo();
+        Commit currentCMT = headPtr(repo);
+        Commit cmt = Commit.readCommit(cmtID);
+        for (String fileName: cmt.blobMap.keySet()){
+            if (join(CWD, fileName).exists() && !currentCMT.blobMap.containsKey(fileName)){
+                System.out.println("There is an untracked file in the way; delete it, or add and commit it first");
+                System.exit(0);
+            }
+            checkOut(fileName, cmtID);
+        }
+        repo.branches.put(repo.head, cmtID);
+        saveRepo(repo);
+    }
+
+
     private static void saveRepo(Repository repo){
         writeObject(REPO, repo);
     }
