@@ -146,7 +146,7 @@ public class Repository implements Serializable {
             }
         }
 
-//        saveRepo(repo);
+        saveRepo(repo);
     }
 
     public static void log(){
@@ -154,23 +154,41 @@ public class Repository implements Serializable {
         Repository repo = readRepo();
         Commit c = headPtr(repo);
         while (c != null){
-            System.out.println("===");
-            System.out.printf("commit ");
-            System.out.println(c.name);
-            if (c.parent2 != null) {
-                System.out.printf("Merge: %a %b", Commit.readCommit(c.parent1).name, Commit.readCommit(c.parent2).name + "\n");
+            System.out.println(c);
+            c = Commit.readCommit(c.parent1);
+        }
+    }
 
-            }
-            System.out.printf("Date: ");
-            System.out.println(c.timestamp);
-            System.out.println(c.message);
-            System.out.println();
-            if (c.parent1 == null){
-                c = null;
-            }else {
-                c = Commit.readCommit(c.parent1);
+    public static void globalLog(){
+        checkInit();
+        List<String> commitsID = plainFilenamesIn(COMMITS_DIR);
+        for (String id: commitsID){
+            Commit c = Commit.readCommit(id);
+            System.out.println(c);
+        }
+    }
+
+    public static void find(String msg){
+        checkInit();
+        List<String> commitsID = plainFilenamesIn(COMMITS_DIR);
+        boolean flag = false;
+        for (String id: commitsID){
+            Commit c = Commit.readCommit(id);
+            if (c.message.equals(msg)){
+                System.out.println(c.name);
+                flag = true;
             }
         }
+        if (!flag){
+            System.out.println("Found no commit with that message.");
+            System.exit(0);
+        }
+    }
+
+    public static void status(){
+        checkInit();
+        Repository repo = readRepo();
+        System.out.println(repo);
     }
 
     public static boolean isStaged(Repository repo, String fileName){
@@ -185,6 +203,62 @@ public class Repository implements Serializable {
         if (!GITLET_DIR.exists()){
             System.out.printf("Not in an initialized Gitlet directory.");
             System.exit(0);
+        }
+    }
+
+    public static void branch(String bName){
+        checkInit();
+        Repository repo = readRepo();
+        if (repo.branches.containsKey(bName)){
+            System.out.println("A branch with that name already exists.");
+            System.exit(0);
+        }
+        String headBranch = repo.branches.get(repo.head);
+        repo.branches.put(bName, headBranch);
+        saveRepo(repo);
+    }
+
+    public static void checkOut(String fileName, String cID){
+        checkInit();
+        Repository repo = readRepo();
+        if (cID.equals("head")){
+            cID = repo.branches.get(repo.head);
+        }
+        Commit cmt = Commit.readCommit(cID);
+        if (!cmt.blobMap.containsKey(fileName)){
+            System.out.println("File does not exist in that commit");
+            System.exit(0);
+        }
+        String fileID = cmt.blobMap.get(fileName);
+        File filePath = join(BlOBS_DIR, fileName, fileID);
+        byte [] contents = readContents(filePath);
+        writeContents(join(CWD, fileName), contents);
+        repo.staged.remove(fileName);
+        saveRepo(repo);
+    }
+
+    public static void checkOut(String branchName){
+        checkInit();
+        Repository repo = readRepo();
+        Commit cmtOld = headPtr(repo);
+        if (!repo.branches.containsKey(branchName)){
+            System.out.println("No such branch exists");
+            System.exit(0);
+        }
+        if(repo.head.equals(branchName)){
+            System.out.println("No need to checkout the current branch");
+            System.exit(0);
+        }
+        repo.head = branchName;
+        saveRepo(repo);
+        Commit cmt = Commit.readCommit(repo.branches.get(branchName));
+        for (String fileName: cmt.blobMap.keySet()){
+            checkOut(fileName, "head");
+        }
+        for (String fileName: cmtOld.blobMap.keySet()){
+            if (!cmt.containsFile(fileName) && join(CWD, fileName).exists()){
+                join(CWD, fileName).delete();
+            }
         }
     }
 
@@ -215,11 +289,41 @@ public class Repository implements Serializable {
         return sha1(contents);
     }
 
+    @Override
+    public String toString(){
+        StringBuffer st = new StringBuffer();
+        st.append("=== Branches ===\n");
+        Set<String> bKeys = branches.keySet();
+        for (String b: bKeys){
+            if (b.equals(head)){
+                st.append("*");
+            }
+            st.append(b);
+            st.append("\n");
+        }
+
+        st.append("\n\n=== Staged Files ===\n");
+        for (String k: staged.keySet()){
+            st.append(k);
+            st.append("\n");
+        }
+
+        st.append("\n\n=== Removed Files ===\n");
+        for (String rm: removed){
+            st.append(rm);
+            st.append("\n");
+        }
+
+        st.append("\n\n=== Modifications Not Staged For Commit ===\n");
+
+        st.append("\n=== Untracked Files ===" + "\n\n");
+
+        return st.toString();
+    }
+
     public static void main(String[] args) {
         Repository repo = readRepo();
         Commit cmt = headPtr(repo);
         System.out.println("1");
     }
-
-
 }

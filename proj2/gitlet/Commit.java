@@ -62,6 +62,21 @@ public class Commit implements Serializable {
         return sha1(nameList.toArray());
     }
 
+    @Override
+    public String toString() {
+        StringBuffer st = new StringBuffer();
+        st.append("===" + "\n");
+        st.append("commit " + this.name + "\n");
+
+        if (this.parent2 != null) {
+            st.append("Merge: %a %b" + Commit.readCommit(this.parent1).name + Commit.readCommit(this.parent2).name + "\n");
+        }
+        st.append("Date: " + this.timestamp + "\n");
+        st.append(this.message);
+        st.append("\n");
+        return st.toString();
+    }
+
     public static String createCommit(String m, Date d, String p1, String p2) {
         Commit c = new Commit(m, d, p1, p2);
         String name = c.commitName();
@@ -93,11 +108,11 @@ public class Commit implements Serializable {
     }
 
     public static String makeCommit(String current, Map<String, String> staged, Set<String> removed, String msg, String parent2){
-        Commit cmt = readCommit(current);
+        Commit oldCmt = readCommit(current);
         Date d = new Date();
 
         Commit newCmt = new Commit(msg, d, current, parent2);
-        newCmt.blobMap = cmt.blobMap;
+        newCmt.blobMap = oldCmt.blobMap;
 
         for (Map.Entry<String, String> entry: staged.entrySet()){
             newCmt.blobMap.put(
@@ -108,8 +123,8 @@ public class Commit implements Serializable {
             newCmt.blobMap.remove(fileName);
         }
 
-        cmt.saveCommit();
-        return cmt.commitName();
+        newCmt.saveCommit();
+        return newCmt.commitName();
     }
 
     /* TODO: fill in the rest of this class. */

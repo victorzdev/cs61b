@@ -40,6 +40,27 @@ public class Main {
             case "log":
                 Repository.log();
                 break;
+            case "global-log":
+                Repository.globalLog();
+                break;
+            case "find":
+                Repository.find(args[1]);
+                break;
+            case "status":
+                Repository.status();
+                break;
+            case "branch":
+                Repository.branch(args[1]);
+                break;
+            case "checkout":
+                if (args.length == 3){
+                    Repository.checkOut(args[2], "head");
+                }else if(args.length == 4){
+                    Repository.checkOut(args[3], args[1]);
+                }else if (args.length == 2){
+                    Repository.checkOut(args[1]);
+                }
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 break;
