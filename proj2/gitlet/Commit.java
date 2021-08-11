@@ -8,14 +8,11 @@ import java.util.*;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
  *
- *  @author TODO
+ *  @author Victor Zhang
  */
 public class Commit implements Serializable {
     /**
-     * TODO: add instance variables here.
      *
      * List all instance variables of the Commit class here with a useful
      * comment above them describing what that variable represents and how that
@@ -60,21 +57,6 @@ public class Commit implements Serializable {
             nameList.add(fileBlob.getValue());
         }
         return sha1(nameList.toArray());
-    }
-
-    @Override
-    public String toString() {
-        StringBuffer st = new StringBuffer();
-        st.append("===" + "\n");
-        st.append("commit " + this.name + "\n");
-
-        if (this.parent2 != null) {
-            st.append("Merge: %a %b" + Commit.readCommit(this.parent1).name + Commit.readCommit(this.parent2).name + "\n");
-        }
-        st.append("Date: " + this.timestamp + "\n");
-        st.append(this.message);
-        st.append("\n");
-        return st.toString();
     }
 
     public static String createCommit(String m, Date d, String p1, String p2) {
@@ -127,5 +109,19 @@ public class Commit implements Serializable {
         return newCmt.commitName();
     }
 
-    /* TODO: fill in the rest of this class. */
+    @Override
+    public String toString() {
+        StringBuffer st = new StringBuffer();
+        st.append("===" + "\n");
+        st.append("commit " + this.name + "\n");
+
+        if (this.parent2 != null) {
+            st.append("Merge: " + Commit.readCommit(this.parent1).name + " " + Commit.readCommit(this.parent2).name + "\n");
+        }
+        st.append("Date: " + this.timestamp + "\n");
+        st.append(this.message);
+        st.append("\n");
+        return st.toString();
+    }
+
 }

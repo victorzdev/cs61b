@@ -6,22 +6,11 @@ import java.util.*;
 
 import static gitlet.Utils.*;
 
-// TODO: any imports you need here
-
 /** Represents a gitlet repository.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
  *
  *  @author Victor Zhang
  */
 public class Repository implements Serializable {
-    /**
-     * TODO: add instance variables here.
-     *
-     * List all instance variables of the Repository class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided two examples for you.
-     */
 
     String head;
 
@@ -53,7 +42,6 @@ public class Repository implements Serializable {
         removed = new TreeSet<>();
     }
 
-    /* TODO: fill in the rest of this class. */
     public static void initCommand(){
         if (GITLET_DIR.exists()){
             System.out.println("A Gitlet version-control system already exists in the current directory.");
@@ -293,6 +281,171 @@ public class Repository implements Serializable {
         saveRepo(repo);
     }
 
+    public static void merge(String branchName){
+        checkInit();
+        Repository repo = readRepo();
+        if (!repo.staged.isEmpty() || !repo.removed.isEmpty()){
+            System.out.println("You have uncommitted changes");
+            System.exit(0);
+        }
+
+        Map branchList = repo.branches;
+        if (!branchList.containsKey(branchName)){
+            System.out.println("A branch with that name does not exist.");
+            System.exit(0);
+        }
+
+        if (repo.head.equals(branchName)){
+            System.out.println("Cannot merge a branch with itself");
+            System.exit(0);
+        }
+
+        Commit currentCmt = headPtr(repo);
+        Commit givenCmt = Commit.readCommit(repo.branches.get(branchName));
+
+        String splitShaVal = findSplitPoint(currentCmt, givenCmt);
+        Commit splitCmt = Commit.readCommit(splitShaVal);
+
+        // merge start
+        Map<String, String> currentFiles = currentCmt.blobMap;
+        Map<String, String> givenFiles = givenCmt.blobMap;
+        Map<String, String> splitFiles = splitCmt.blobMap;
+
+        Set<String> fileNames = new HashSet<>();
+        fileNames.addAll(currentFiles.keySet());
+        fileNames.addAll(givenFiles.keySet());
+        fileNames.addAll(splitFiles.keySet());
+
+        for (String fileName: fileNames){
+
+            if(splitFiles.containsKey(fileName)){
+                String val = splitFiles.get(fileName);
+                if (currentFiles.containsKey(fileName) && currentFiles.get(fileName).equals(val) && !givenFiles.containsKey(fileName)){
+                    repo.staged.remove(fileName);
+                    repo.removed.add(fileName);
+                } //6
+
+                if (givenFiles.containsKey(fileName) && currentFiles.containsKey(fileName)){
+                    if (!givenFiles.get(fileName).equals(val) && currentFiles.get(fileName).equals(val)){
+                        checkOut(fileName, givenCmt.name);
+                        repo.staged.put(fileName, givenFiles.get(fileName));
+                    } // 1
+
+                    if (!givenFiles.get(fileName).equals(val) &&
+                            !currentFiles.get(fileName).equals(val) &&
+                            !givenFiles.get(fileName).equals(currentFiles.get(fileName))){
+                        // conflict 8
+                        String shaValue = genConflict(fileName, currentCmt, givenCmt);
+                        repo.staged.put(fileName, shaValue);
+                    }
+                }
+
+                if (givenFiles.containsKey(fileName) && !givenFiles.get(fileName).equals(val) && !currentFiles.containsKey(fileName)){
+                    String shaValue = genConflict(fileName, currentCmt, null);
+                    repo.staged.put(fileName, shaValue);
+                }
+
+                if (currentFiles.containsKey(fileName) && !currentFiles.get(fileName).equals(val) && !givenFiles.containsKey(fileName)){
+                    String shaValue = genConflict(fileName, null, givenCmt);
+                    repo.staged.put(fileName, shaValue);
+                }
+            }else{
+                if (!currentFiles.containsKey(fileName) && givenFiles.containsKey(fileName)){
+                    checkOut(fileName, givenCmt.name); //5
+                    repo.staged.put(fileName, givenFiles.get(fileName));
+                }
+
+                if (givenFiles.containsKey(fileName) && currentFiles.containsKey(fileName)){
+                    if (!givenFiles.get(fileName).equals(currentFiles.get(fileName))){
+                        String shaValue = genConflict(fileName, currentCmt, givenCmt);
+                        repo.staged.put(fileName, shaValue);
+                    }
+                }
+            }
+        }
+        String mergeMsg = "Merged " + branchName + " into " + repo.head + ".";
+        saveRepo(repo);
+        Repository.commit(mergeMsg, givenCmt.name);
+    }
+
+    public static String genConflict(String fileName, Commit currentFile, Commit givenFile){
+        Repository repo = readRepo();
+        StringBuffer resolved = new StringBuffer("<<<<<<< HEAD\n");
+
+        if (currentFile == null){
+            resolved.append("");
+        }else{
+            File fPath = join(repo.BlOBS_DIR, fileName, currentFile.blobMap.get(fileName));
+            resolved.append(readContentsAsString(fPath));
+        }
+
+        resolved.append("======\n");
+
+        if (givenFile == null){
+            resolved.append("");
+        }else{
+            File fPath = join(repo.BlOBS_DIR, fileName, givenFile.blobMap.get(fileName));
+            resolved.append(readContentsAsString(fPath));
+        }
+
+        resolved.append(">>>>>>>\n");
+
+        String resolvedString = resolved.toString();
+        String resolvedSha1 = sha1(resolvedString);
+
+        File fileBlobDIR = join(repo.BlOBS_DIR, fileName, resolvedSha1);
+        writeContents(fileBlobDIR, resolvedString);
+
+        File cwdDIR = join(repo.CWD, fileName);
+        writeContents(cwdDIR, resolvedString);
+
+        System.out.println("Encountered a merge conflict");
+        return resolvedSha1;
+    }
+
+    public static String findSplitPoint(Commit currentCmt, Commit givenCmt){
+        List<String> cAncestorList = new LinkedList<>();
+
+        String currentCmtName = currentCmt.name;
+        String givenCmtName = givenCmt.name;
+
+        while (currentCmt != null){
+            cAncestorList.add(currentCmt.name);
+            currentCmt = Commit.readCommit(currentCmt.parent1);
+        }
+
+        String splitPoint;
+        while (true){
+            if (cAncestorList.contains(givenCmt.name)){
+                splitPoint = givenCmt.name;
+                break;
+            }
+            givenCmt = Commit.readCommit(givenCmt.parent1);
+        }
+
+        if (splitPoint.equals(givenCmtName)){
+            System.out.println("Given branch is an ancestor of the current branch.");
+            System.exit(0);
+        }
+
+        if (splitPoint.equals(currentCmtName)){
+            checkOut(getBranchName(givenCmt.name));
+            System.out.println("Current branch fast-forwarded");
+            System.exit(0);
+        }
+
+        return splitPoint;
+    }
+
+    public static String getBranchName(String cmtID){
+        Repository repo = readRepo();
+        for (Map.Entry<String, String> pairs: repo.branches.entrySet()){
+            if (pairs.getValue().equals(cmtID)){
+                return pairs.getKey();
+            }
+        }
+        return null;
+    }
 
     private static void saveRepo(Repository repo){
         writeObject(REPO, repo);
@@ -353,9 +506,4 @@ public class Repository implements Serializable {
         return st.toString();
     }
 
-    public static void main(String[] args) {
-        Repository repo = readRepo();
-        Commit cmt = headPtr(repo);
-        System.out.println("1");
-    }
 }
