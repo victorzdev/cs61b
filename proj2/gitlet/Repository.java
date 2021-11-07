@@ -44,7 +44,7 @@ public class Repository implements Serializable {
 
     public static void initCommand(){
         if (GITLET_DIR.exists()){
-            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            System.out.println("A GitLet version-control system already exists in the current directory.");
             System.exit(0);
         }
         GITLET_DIR.mkdir();
@@ -97,7 +97,7 @@ public class Repository implements Serializable {
         }
 
         if (msg == ""){
-            System.out.printf("Please enter commit msg");
+            System.out.printf("Please enter commit message");
             System.exit(0);
         }
 
@@ -116,7 +116,6 @@ public class Repository implements Serializable {
         Repository repo = readRepo();
 
         File filePath = join(CWD, fileName);
-        Commit c = headPtr(repo);
 
         if (!isStaged(repo, fileName) && !headPtr(repo).containsFile(fileName)){
             System.out.println("No reason to remove the file");
@@ -207,6 +206,7 @@ public class Repository implements Serializable {
     }
 
     public static void checkOut(String fileName, String cID){
+        /** Checkout a file from given commit */
         checkInit();
         Repository repo = readRepo();
         if (cID.equals("head")){
@@ -226,6 +226,7 @@ public class Repository implements Serializable {
     }
 
     public static void checkOut(String branchName){
+        /** Checkout a branch */
         checkInit();
         Repository repo = readRepo();
         Commit cmtOld = headPtr(repo);
@@ -251,6 +252,7 @@ public class Repository implements Serializable {
     }
 
     public static void rmBranch(String branchName){
+        /** Remove a branch */
         checkInit();
         Repository repo = readRepo();
         if (!repo.branches.containsKey(branchName)){
@@ -266,6 +268,7 @@ public class Repository implements Serializable {
     }
 
     public static void reset(String cmtID){
+        /** Rest branch to a given commit */
         checkInit();
         Repository repo = readRepo();
         Commit currentCMT = headPtr(repo);
